@@ -1,7 +1,7 @@
 # https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/google_service_account
-resource "google_service_account" "kubernetes" {
-  account_id = "kubernetes"
-}
+# resource "google_service_account" "kubernetes" {
+#   account_id = "kubernetes"
+# }
 
 # https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/container_node_pool
 resource "google_container_node_pool" "general" {
@@ -24,7 +24,7 @@ resource "google_container_node_pool" "general" {
       role = "general"
     }
 
-    service_account = google_service_account.kubernetes.email
+    # service_account = google_service_account.kubernetes.email
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
     ]

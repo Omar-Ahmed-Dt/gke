@@ -51,7 +51,7 @@ resource "helm_release" "cert_manager" {
 #       }
 #     }
 #   }
-#   # depends_on = [google_container_cluster.primary]
+#   depends_on = [google_container_cluster.primary]
 
 # }
 
@@ -61,7 +61,7 @@ resource "helm_release" "external_secrets" {
   namespace  = "external-secrets"
   chart      = "external-secrets"
   repository = "https://charts.external-secrets.io"
-  version    = "0.6.1"
+  # version    = "0.6.1"
 
   create_namespace = true
 }
@@ -78,23 +78,24 @@ resource "helm_release" "ingress" {
   timeout          = 300
   atomic           = true
 
-#   values = [
-#     <<EOF
-# controller:
-#   podSecurityContext:
-#     runAsNonRoot: true
-# service:
-#   enabled: true
-#   annotations:
-#     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-#   enableHttp: true
-#   enableHttps: true
-# EOF
-#   ]
+  values = [
+    <<EOF
+controller:
+  podSecurityContext:
+    runAsNonRoot: true
+service:
+  enabled: true
+  annotations:
+    cloud.google.com/load-balancer-type: "External" # GCP load balancer annotation
+  enableHttp: true
+  enableHttps: true
+EOF
+  ]
 
 }
 
-# Get the Kubernetes Service for Ingress
+
+# Fetch Kubernetes Service for Ingress
 data "kubernetes_service_v1" "ingress_service" {
   metadata {
     name      = "ingress-nginx-controller"
@@ -105,13 +106,13 @@ data "kubernetes_service_v1" "ingress_service" {
 
 # Fetch GCP DNS Managed Zone
 data "google_dns_managed_zone" "default" {
-  name = "enkidudev-website-zone"  # Replace with your GCP managed zone name
+  name = "heradev-website-zone"  # Replace with your GCP managed zone name
 }
 
-# Create CNAME Record in Google Cloud DNS
-resource "google_dns_record_set" "ingress_record" {
+# Create A Record in Google Cloud DNS for the First App
+resource "google_dns_record_set" "app_ingress_record" {
   managed_zone = data.google_dns_managed_zone.default.name
-  name         = "app.enkidudev.website."  # Ensure the domain name ends with a dot
+  name         = "app.heradev.website."  # Ensure the domain name ends with a dot
   type         = "A"
   ttl          = 300
   rrdatas      = [
@@ -119,14 +120,61 @@ resource "google_dns_record_set" "ingress_record" {
   ]
 }
 
+# Create A Record in Google Cloud DNS for the Second App
+resource "google_dns_record_set" "deploy_ingress_record" {
+  managed_zone = data.google_dns_managed_zone.default.name
+  name         = "deploy.heradev.website."  # Ensure the domain name ends with a dot
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [
+    data.kubernetes_service_v1.ingress_service.status[0].load_balancer[0].ingress[0].ip
+  ]
+}
 
 # ArgoCD Installation
-resource "helm_release" "argocd" {
-  name       = "argocd"
-  namespace  = "argocd"
-  chart      = "argo-cd"
-  repository = "https://argoproj.github.io/argo-helm"
-  version    = "4.0.0"  # Replace with the latest version
+# resource "helm_release" "argocd" {
+#   name       = "argocd"
+#   namespace  = "argocd"
+#   chart      = "argo-cd"
+#   repository = "https://argoproj.github.io/argo-helm"
 
-  create_namespace = true
+#   create_namespace = true
+
+#   values = [
+#     <<EOF
+# installCRDs: false
+# EOF
+#   ]
+# }
+
+# Add the Grafana Helm repository
+# resource "helm_release" "grafana" {
+#   name       = "grafana"
+#   namespace  = "monitoring"
+#   chart      = "grafana"
+#   repository = "https://grafana.github.io/helm-charts"
+#   version    = "6.59.2"  # You can specify a version or leave it out for the latest
+#   create_namespace = true
+
+# }
+
+# Helm release for Loki Stack (Loki + Grafana + Promtail)
+resource "helm_release" "loki_stack" {
+  name             = "loki-stack"
+  namespace        = "monitoring"
+  chart            = "loki-stack"
+  repository       = "https://grafana.github.io/helm-charts"
+  # version          = "2.12.2"  # Specify Loki stack version or use the latest
+  create_namespace = true  # Create the namespace if it doesn't exist
+
+  values = [
+    <<EOF
+    grafana:
+      enabled: true  # Enable Grafana as part of the Loki Stack installation
+      image:
+        tag: latest  # Use the latest Grafana image
+      adminUser: "admin"
+      adminPassword: "password"
+    EOF
+  ]
 }

@@ -1,26 +1,53 @@
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: ing 
+#   namespace: argocd  # Place Ingress in the same namespace as the argocd-server service
+#   annotations:
+#     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+#     nginx.ingress.kubernetes.io/use-regex: "true"
+#     cert-manager.io/cluster-issuer: http-01-production  # Specifies the ClusterIssuer
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#   - host: app.heradev.website  # Domain for the first app
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: argocd-server  # Service name within the same namespace
+#             port:
+#               number: 80
+#   tls:
+#   - hosts:
+#     - app.heradev.website
+#     secretName: argocd-server-tls
+
+# Ingress for Second App (deploy.heradev.website)
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress
-  namespace: argocd
+  name: my-ingress-1
+  namespace: default  # Adjust namespace if needed
   annotations:
     cert-manager.io/cluster-issuer: http-01-production
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - app.enkidudev.website  # Correct the domain here
-      secretName: argocd-tls-secret
   rules:
-    - host: app.enkidudev.website  # Correct the domain here
-      http:
-        paths:
-          - pathType: Prefix
-            path: /
-            backend:
-              service:
-                name: argocd-server
-                port:
-                  number: 80
-
+  - host: deploy.heradev.website  # Use 'deploy.heradev.website' for the second app
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: solar-system-service
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - deploy.heradev.website  # Use 'deploy.heradev.website' for the second app
+    secretName: app-devopsbyexample-com
